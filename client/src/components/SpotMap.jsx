@@ -62,12 +62,16 @@ function FlyTo({ center }) {
 }
 
 export default function SpotMap({ user, onLogout }) {
-  const [position, setPosition] = useState(null);
+  const DEFAULT_LAT = 40.7128;
+  const DEFAULT_LNG = -74.006;
+  const defaultPos = useRef({ lat: DEFAULT_LAT, lng: DEFAULT_LNG });
+  const [position, setPosition] = useState({ lat: DEFAULT_LAT, lng: DEFAULT_LNG });
   const [datapoints, setDatapoints] = useState([]);
   const [reporting, setReporting] = useState(false);
   const [reportPos, setReportPos] = useState(null);
   const [flyTarget, setFlyTarget] = useState(null);
   const [toast, setToast] = useState('');
+  const geoInitialized = useRef(false);
   const toastTimer = useRef(null);
   const refreshTimer = useRef(null);
 
@@ -87,26 +91,26 @@ export default function SpotMap({ user, onLogout }) {
   }, []);
 
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setPosition({ lat: 40.7128, lng: -74.006 });
-      return;
-    }
+    if (geoInitialized.current) return;
+    geoInitialized.current = true;
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setPosition(loc);
-        setFlyTarget(loc);
-        fetchDatapoints(loc.lat, loc.lng);
-      },
-      () => {
-        const fallback = { lat: 40.7128, lng: -74.006 };
-        setPosition(fallback);
-        setFlyTarget(fallback);
-        fetchDatapoints(fallback.lat, fallback.lng);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+    const initLocation = (loc) => {
+      setPosition(loc);
+      setFlyTarget(loc);
+      fetchDatapoints(loc.lat, loc.lng);
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => initLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => initLocation(defaultPos.current),
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    } else {
+      getDatapoints(defaultPos.current.lat, defaultPos.current.lng)
+        .then(setDatapoints)
+        .catch(() => {});
+    }
   }, [fetchDatapoints]);
 
   useEffect(() => {
