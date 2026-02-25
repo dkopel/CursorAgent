@@ -50,10 +50,10 @@ function timeAgo(dateStr) {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-function MapClickHandler({ onMapClick }) {
+function MapClickHandler({ onMapClick, enabled }) {
   useMapEvents({
     click(e) {
-      onMapClick(e.latlng);
+      if (enabled) onMapClick(e.latlng);
     },
   });
   return null;
@@ -67,19 +67,38 @@ function FlyTo({ center }) {
   return null;
 }
 
+function getDeviceLocation() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Geolocation not supported'));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (err) => reject(err),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  });
+}
+
 export default function SpotMap({ user, onLogout }) {
   const DEFAULT_LAT = 40.7128;
   const DEFAULT_LNG = -74.006;
   const defaultPos = useRef({ lat: DEFAULT_LAT, lng: DEFAULT_LNG });
   const [position, setPosition] = useState({ lat: DEFAULT_LAT, lng: DEFAULT_LNG });
+  const [hasGps, setHasGps] = useState(false);
   const [datapoints, setDatapoints] = useState([]);
   const [reporting, setReporting] = useState(false);
   const [reportPos, setReportPos] = useState(null);
+  const [deviceLoc, setDeviceLoc] = useState(null);
   const [flyTarget, setFlyTarget] = useState(null);
   const [toast, setToast] = useState('');
+  const [locatingForReport, setLocatingForReport] = useState(false);
   const geoInitialized = useRef(false);
   const toastTimer = useRef(null);
   const refreshTimer = useRef(null);
+
+  const isTrusted = !!user.trusted;
 
   function showToast(msg) {
     setToast(msg);
@@ -108,7 +127,12 @@ export default function SpotMap({ user, onLogout }) {
 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => initLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        (pos) => {
+          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setHasGps(true);
+          setDeviceLoc(loc);
+          initLocation(loc);
+        },
         () => initLocation(defaultPos.current),
         { enableHighAccuracy: true, timeout: 10000 }
       );
@@ -132,6 +156,8 @@ export default function SpotMap({ user, onLogout }) {
       (pos) => {
         const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setPosition(loc);
+        setDeviceLoc(loc);
+        setHasGps(true);
         setFlyTarget({ ...loc });
       },
       () => showToast('Could not get location')
@@ -145,15 +171,29 @@ export default function SpotMap({ user, onLogout }) {
     }
   }
 
-  function startReport() {
-    if (position) {
+  async function startReport() {
+    if (!isTrusted) {
+      setLocatingForReport(true);
+      try {
+        const loc = await getDeviceLocation();
+        setPosition(loc);
+        setDeviceLoc(loc);
+        setHasGps(true);
+        setReportPos(loc);
+        setReporting(true);
+      } catch {
+        showToast('Location required to report — please enable GPS');
+      } finally {
+        setLocatingForReport(false);
+      }
+    } else {
       setReportPos(position);
       setReporting(true);
     }
   }
 
   function handleMapClick(latlng) {
-    if (reporting) {
+    if (reporting && isTrusted) {
       setReportPos({ lat: latlng.lat, lng: latlng.lng });
     }
   }
@@ -175,7 +215,7 @@ export default function SpotMap({ user, onLogout }) {
     }
   }
 
-  const center = position || { lat: 40.7128, lng: -74.006 };
+  const center = position || { lat: DEFAULT_LAT, lng: DEFAULT_LNG };
 
   return (
     <>
@@ -183,6 +223,7 @@ export default function SpotMap({ user, onLogout }) {
         <div className="brand">📍 SpotMap</div>
         <div className="user-info">
           <span>@{user.username}</span>
+          {isTrusted && <span className="trusted-badge" title="Trusted user — can report anywhere">⭐</span>}
           <button className="btn-logout" onClick={onLogout}>Logout</button>
         </div>
       </header>
@@ -193,7 +234,7 @@ export default function SpotMap({ user, onLogout }) {
             attribution='&copy; <a href="https://www.openstreetmap.org/">OSM</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <MapClickHandler onMapClick={handleMapClick} />
+          <MapClickHandler onMapClick={handleMapClick} enabled={reporting && isTrusted} />
           {flyTarget && <FlyTo center={[flyTarget.lat, flyTarget.lng]} />}
 
           {position && <Marker position={[position.lat, position.lng]} icon={userIcon}>
@@ -232,7 +273,7 @@ export default function SpotMap({ user, onLogout }) {
               position={[reportPos.lat, reportPos.lng]}
               icon={createEmojiIcon('🎯')}
             >
-              <Popup>Report location — tap map to move</Popup>
+              <Popup>{isTrusted ? 'Report location — tap map to move' : 'Reporting at your location'}</Popup>
             </Marker>
           )}
         </MapContainer>
@@ -245,20 +286,24 @@ export default function SpotMap({ user, onLogout }) {
         </button>
 
         {!reporting && (
-          <button className="report-btn" onClick={startReport}>
-            ➕ Report
+          <button className="report-btn" onClick={startReport} disabled={locatingForReport}>
+            {locatingForReport ? '📡 Getting location...' : '➕ Report'}
           </button>
         )}
 
         {reporting && reportPos && (
           <ReportPanel
             position={reportPos}
+            deviceLocation={deviceLoc}
             onClose={() => setReporting(false)}
             onCreated={handleCreated}
           />
         )}
       </div>
 
+      {!hasGps && !reporting && (
+        <div className="toast">📡 Enable location services to report</div>
+      )}
       {toast && <div className="toast">{toast}</div>}
     </>
   );

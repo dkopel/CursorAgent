@@ -28,10 +28,10 @@ router.post('/register', (req, res) => {
   const hash = bcrypt.hashSync(password, 10);
   const result = db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run(username, hash);
 
-  const user = { id: result.lastInsertRowid, username };
+  const user = { id: result.lastInsertRowid, username, trusted: false };
   const token = generateToken(user);
 
-  res.status(201).json({ token, user: { id: user.id, username: user.username } });
+  res.status(201).json({ token, user: { id: user.id, username: user.username, trusted: false } });
 });
 
 router.post('/login', (req, res) => {
@@ -50,8 +50,9 @@ router.post('/login', (req, res) => {
     return res.status(401).json({ error: 'Invalid credentials' });
   }
 
-  const token = generateToken(user);
-  res.json({ token, user: { id: user.id, username: user.username } });
+  const trusted = !!user.trusted;
+  const token = generateToken({ id: user.id, username: user.username, trusted });
+  res.json({ token, user: { id: user.id, username: user.username, trusted } });
 });
 
 export default router;

@@ -11,7 +11,7 @@ const TYPES = {
 
 const EMOJI_PICKER = ['📍','🚨','🛑','⚠️','🚁','🏛️','📡','👮','🔍','🚧','💀','❗','🔒','👁️','📢','🐕','🚐','🏢'];
 
-export default function ReportPanel({ position, onClose, onCreated }) {
+export default function ReportPanel({ position, deviceLocation, onClose, onCreated }) {
   const [type, setType] = useState('');
   const [label, setLabel] = useState('');
   const [customEmoji, setCustomEmoji] = useState('📍');
@@ -39,6 +39,8 @@ export default function ReportPanel({ position, onClose, onCreated }) {
         lng: position.lng,
         duration: parseInt(duration),
         custom_emoji: isOther ? customEmoji : undefined,
+        device_lat: deviceLocation?.lat,
+        device_lng: deviceLocation?.lng,
       });
       onCreated(dp);
     } catch (err) {

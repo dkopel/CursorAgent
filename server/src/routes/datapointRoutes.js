@@ -53,8 +53,21 @@ router.get('/', (req, res) => {
   res.json(rows);
 });
 
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const toRad = (v) => (v * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+const MAX_DISTANCE_KM = 0.5;
+
 router.post('/', authenticateToken, (req, res) => {
-  const { type, label, lat, lng, duration = 60, custom_emoji } = req.body;
+  const { type, label, lat, lng, duration = 60, custom_emoji, device_lat, device_lng } = req.body;
 
   if (!type || lat == null || lng == null) {
     return res.status(400).json({ error: 'type, lat, and lng are required' });
@@ -66,6 +79,20 @@ router.post('/', authenticateToken, (req, res) => {
 
   if (type === 'other' && !label) {
     return res.status(400).json({ error: 'A name is required for custom reports' });
+  }
+
+  const isTrusted = !!req.user.trusted;
+
+  if (!isTrusted) {
+    if (device_lat == null || device_lng == null) {
+      return res.status(400).json({ error: 'Device location is required for reporting' });
+    }
+    const dist = haversineKm(device_lat, device_lng, lat, lng);
+    if (dist > MAX_DISTANCE_KM) {
+      return res.status(403).json({
+        error: 'You can only report at your current location',
+      });
+    }
   }
 
   const durationMinutes = Math.min(Math.max(parseInt(duration) || 60, 5), 1440);
