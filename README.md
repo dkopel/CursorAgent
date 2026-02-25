@@ -28,5 +28,5 @@ In-memory ranking and commenting service for map datapoints.
 ## Run tests
 
 ```bash
-python -m unittest discover -s tests -p "test_*.py"
+python3 -m unittest discover -s tests -p "test_*.py"
 ```
