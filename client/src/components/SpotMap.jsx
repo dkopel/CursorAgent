@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import ReportPanel from './ReportPanel';
+import ClusterDetailPanel from './ClusterDetailPanel';
 import { getDatapoints, deleteDatapoint } from '../api';
 import 'leaflet/dist/leaflet.css';
 
@@ -15,12 +16,48 @@ const TYPES = {
 
 function getDatapointDisplay(dp) {
   if (dp.type === 'other') {
-    return {
-      emoji: dp.custom_emoji || '📍',
-      label: dp.label || 'Other',
-    };
+    return { emoji: dp.custom_emoji || '📍', label: dp.label || 'Other' };
   }
   return TYPES[dp.type] || { emoji: '📍', label: dp.type };
+}
+
+function haversineMeters(lat1, lng1, lat2, lng2) {
+  const toRad = (v) => (v * Math.PI) / 180;
+  const R = 6371000;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+const CLUSTER_RADIUS_M = 150;
+
+function clusterDatapoints(points) {
+  const clusters = [];
+  const used = new Set();
+
+  for (let i = 0; i < points.length; i++) {
+    if (used.has(i)) continue;
+    const cluster = { points: [points[i]], lat: points[i].lat, lng: points[i].lng };
+    used.add(i);
+
+    for (let j = i + 1; j < points.length; j++) {
+      if (used.has(j)) continue;
+      if (haversineMeters(cluster.lat, cluster.lng, points[j].lat, points[j].lng) <= CLUSTER_RADIUS_M) {
+        cluster.points.push(points[j]);
+        used.add(j);
+      }
+    }
+
+    let sumLat = 0, sumLng = 0;
+    for (const p of cluster.points) { sumLat += p.lat; sumLng += p.lng; }
+    cluster.lat = sumLat / cluster.points.length;
+    cluster.lng = sumLng / cluster.points.length;
+
+    clusters.push(cluster);
+  }
+  return clusters;
 }
 
 function createEmojiIcon(emoji) {
@@ -30,6 +67,23 @@ function createEmojiIcon(emoji) {
     iconSize: [36, 36],
     iconAnchor: [18, 18],
     popupAnchor: [0, -20],
+  });
+}
+
+function createClusterIcon(count) {
+  const size = count <= 3 ? 44 : count <= 7 ? 52 : count <= 15 ? 60 : count <= 30 ? 68 : 76;
+  const fontSize = size * 0.4;
+  const opacity = Math.min(0.5 + count * 0.04, 0.95);
+  return L.divIcon({
+    html: `<div class="cluster-marker" style="
+      width:${size}px;height:${size}px;
+      font-size:${fontSize}px;
+      background:rgba(239,68,68,${opacity});
+      box-shadow:0 0 ${size * 0.4}px rgba(239,68,68,${opacity * 0.7}), 0 2px 8px rgba(0,0,0,0.4);
+    ">${count}</div>`,
+    className: '',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 
@@ -94,11 +148,14 @@ export default function SpotMap({ user, onLogout }) {
   const [flyTarget, setFlyTarget] = useState(null);
   const [toast, setToast] = useState('');
   const [locatingForReport, setLocatingForReport] = useState(false);
+  const [selectedCluster, setSelectedCluster] = useState(null);
   const geoInitialized = useRef(false);
   const toastTimer = useRef(null);
   const refreshTimer = useRef(null);
 
   const isTrusted = !!user.trusted;
+
+  const clusters = useMemo(() => clusterDatapoints(datapoints), [datapoints]);
 
   function showToast(msg) {
     setToast(msg);
@@ -111,7 +168,7 @@ export default function SpotMap({ user, onLogout }) {
       const data = await getDatapoints(lat, lng);
       setDatapoints(data);
     } catch {
-      // silent fail on fetch
+      // silent fail
     }
   }, []);
 
@@ -172,6 +229,7 @@ export default function SpotMap({ user, onLogout }) {
   }
 
   async function startReport() {
+    setSelectedCluster(null);
     if (!isTrusted) {
       setLocatingForReport(true);
       try {
@@ -196,6 +254,9 @@ export default function SpotMap({ user, onLogout }) {
     if (reporting && isTrusted) {
       setReportPos({ lat: latlng.lat, lng: latlng.lng });
     }
+    if (!reporting) {
+      setSelectedCluster(null);
+    }
   }
 
   function handleCreated(dp) {
@@ -209,6 +270,14 @@ export default function SpotMap({ user, onLogout }) {
     try {
       await deleteDatapoint(id);
       setDatapoints((prev) => prev.filter((d) => d.id !== id));
+      if (selectedCluster) {
+        const remaining = selectedCluster.points.filter((d) => d.id !== id);
+        if (remaining.length === 0) {
+          setSelectedCluster(null);
+        } else {
+          setSelectedCluster({ ...selectedCluster, points: remaining });
+        }
+      }
       showToast('Deleted!');
     } catch (err) {
       showToast(err.message);
@@ -234,37 +303,57 @@ export default function SpotMap({ user, onLogout }) {
             attribution='&copy; <a href="https://www.openstreetmap.org/">OSM</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <MapClickHandler onMapClick={handleMapClick} enabled={reporting && isTrusted} />
+          <MapClickHandler onMapClick={handleMapClick} enabled={true} />
           {flyTarget && <FlyTo center={[flyTarget.lat, flyTarget.lng]} />}
 
           {position && <Marker position={[position.lat, position.lng]} icon={userIcon}>
             <Popup>You are here</Popup>
           </Marker>}
 
-          {datapoints.map((dp) => {
-            const info = getDatapointDisplay(dp);
+          {clusters.map((cluster, idx) => {
+            if (cluster.points.length === 1) {
+              const dp = cluster.points[0];
+              const info = getDatapointDisplay(dp);
+              return (
+                <Marker
+                  key={dp.id}
+                  position={[dp.lat, dp.lng]}
+                  icon={createEmojiIcon(info.emoji)}
+                  eventHandlers={{
+                    click: () => setSelectedCluster(cluster),
+                  }}
+                >
+                  <Popup>
+                    <div className="datapoint-popup">
+                      <div className="popup-emoji">{info.emoji}</div>
+                      <div className="popup-type">{info.label}</div>
+                      {dp.type !== 'other' && dp.label && <div className="popup-label">"{dp.label}"</div>}
+                      <div className="popup-meta">
+                        by @{dp.username} &middot; {timeAgo(dp.created_at)}
+                      </div>
+                      {dp.user_id === user.id && (
+                        <button className="popup-delete" onClick={() => handleDelete(dp.id)}>
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  </Popup>
+                </Marker>
+              );
+            }
+
             return (
               <Marker
-                key={dp.id}
-                position={[dp.lat, dp.lng]}
-                icon={createEmojiIcon(info.emoji)}
-              >
-                <Popup>
-                  <div className="datapoint-popup">
-                    <div className="popup-emoji">{info.emoji}</div>
-                    <div className="popup-type">{info.label}</div>
-                    {dp.type !== 'other' && dp.label && <div className="popup-label">"{dp.label}"</div>}
-                    <div className="popup-meta">
-                      by @{dp.username} &middot; {timeAgo(dp.created_at)}
-                    </div>
-                    {dp.user_id === user.id && (
-                      <button className="popup-delete" onClick={() => handleDelete(dp.id)}>
-                        Delete
-                      </button>
-                    )}
-                  </div>
-                </Popup>
-              </Marker>
+                key={`cluster-${idx}`}
+                position={[cluster.lat, cluster.lng]}
+                icon={createClusterIcon(cluster.points.length)}
+                eventHandlers={{
+                  click: (e) => {
+                    e.originalEvent?.stopPropagation?.();
+                    setSelectedCluster(cluster);
+                  },
+                }}
+              />
             );
           })}
 
@@ -285,7 +374,7 @@ export default function SpotMap({ user, onLogout }) {
           🔄
         </button>
 
-        {!reporting && (
+        {!reporting && !selectedCluster && (
           <button className="report-btn" onClick={startReport} disabled={locatingForReport}>
             {locatingForReport ? '📡 Getting location...' : '➕ Report'}
           </button>
@@ -297,6 +386,15 @@ export default function SpotMap({ user, onLogout }) {
             deviceLocation={deviceLoc}
             onClose={() => setReporting(false)}
             onCreated={handleCreated}
+          />
+        )}
+
+        {selectedCluster && !reporting && (
+          <ClusterDetailPanel
+            cluster={selectedCluster}
+            userId={user.id}
+            onClose={() => setSelectedCluster(null)}
+            onDelete={handleDelete}
           />
         )}
       </div>

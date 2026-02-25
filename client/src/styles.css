@@ -473,6 +473,197 @@ input {
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
+/* Cluster marker */
+.cluster-marker {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 800;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  transition: transform 0.15s;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.cluster-marker:hover {
+  transform: scale(1.15);
+}
+
+/* Cluster detail panel */
+.cluster-panel {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1001;
+  background: var(--bg-card);
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 1.25rem;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+  max-height: 55vh;
+  overflow-y: auto;
+  animation: slideUp 0.25s ease-out;
+}
+
+.cluster-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.cluster-panel-header h3 {
+  font-size: 1.05rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.cluster-panel-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--danger);
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.cluster-panel-header .close-btn {
+  background: var(--bg-input);
+  color: var(--text);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  border: none;
+  cursor: pointer;
+}
+
+.cluster-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.cluster-group {
+  background: var(--bg-input);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.cluster-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.9rem;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.cluster-group-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.cluster-group-header.expanded {
+  border-bottom: 1px solid var(--border);
+}
+
+.cluster-group-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.cluster-group-emoji {
+  font-size: 1.5rem;
+}
+
+.cluster-group-label {
+  font-weight: 600;
+}
+
+.cluster-group-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cluster-group-count {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.cluster-group-chevron {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.cluster-group-items {
+  padding: 0.25rem 0;
+}
+
+.cluster-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem 0.5rem 3.2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.cluster-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.cluster-item-label {
+  font-size: 0.8rem;
+  color: var(--text);
+  margin-bottom: 0.15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cluster-item-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.cluster-item-delete {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--danger);
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+  border: none;
+  cursor: pointer;
+}
+
+.cluster-item-delete:hover {
+  background: rgba(239, 68, 68, 0.35);
+}
+
 /* Other type: custom config */
 .other-config {
   margin-bottom: 0.75rem;
