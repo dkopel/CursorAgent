@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CursorAgent - Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="dashboard" id="dashboardView">
+        <div class="logo">
+          <h1>CursorAgent</h1>
+        </div>
+        <h2>Welcome!</h2>
+        <p class="email-display" id="userEmail"></p>
+
+        <div id="alert" class="alert"></div>
+
+        <div class="actions">
+          <button class="btn btn-outline" onclick="showChangePassword()">Change Password</button>
+          <button class="btn btn-danger" onclick="logout()">Sign Out</button>
+        </div>
+      </div>
+
+      <div id="changePasswordView" style="display:none;">
+        <div class="logo">
+          <h1>CursorAgent</h1>
+          <p>Change your password</p>
+        </div>
+
+        <div id="cpAlert" class="alert"></div>
+
+        <form id="changePasswordForm">
+          <div class="form-group">
+            <label for="currentPassword">Current Password</label>
+            <input type="password" id="currentPassword" placeholder="Enter current password" required autocomplete="current-password">
+          </div>
+
+          <div class="form-group">
+            <label for="newPassword">New Password</label>
+            <input type="password" id="newPassword" placeholder="Enter new password" required autocomplete="new-password">
+            <div class="password-strength">
+              <div class="strength-bar"><div class="strength-fill" id="strengthFill"></div></div>
+              <div class="strength-text" id="strengthText"></div>
+            </div>
+            <div class="password-requirements" id="requirements"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="confirmPassword">Confirm New Password</label>
+            <input type="password" id="confirmPassword" placeholder="Re-enter new password" required autocomplete="new-password">
+          </div>
+
+          <button type="submit" class="btn btn-primary" id="cpSubmitBtn">Change Password</button>
+        </form>
+
+        <div class="links">
+          <p><a href="#" onclick="showDashboard(); return false;">Back to dashboard</a></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    if (!getToken()) window.location.href = '/';
+
+    const user = getUser();
+    if (user) {
+      document.getElementById('userEmail').textContent = user.email;
+    }
+
+    function showChangePassword() {
+      document.getElementById('dashboardView').style.display = 'none';
+      document.getElementById('changePasswordView').style.display = 'block';
+    }
+
+    function showDashboard() {
+      document.getElementById('changePasswordView').style.display = 'none';
+      document.getElementById('dashboardView').style.display = 'block';
+      hideAlert('cpAlert');
+    }
+
+    function logout() {
+      clearAuth();
+      window.location.href = '/';
+    }
+
+    const passwordInput = document.getElementById('newPassword');
+    const strengthFill = document.getElementById('strengthFill');
+    const strengthText = document.getElementById('strengthText');
+    const requirements = document.getElementById('requirements');
+
+    passwordInput.addEventListener('input', () => {
+      updateStrengthBar(passwordInput.value, strengthFill, strengthText);
+      updatePasswordRequirements(passwordInput.value, requirements);
+    });
+
+    document.getElementById('changePasswordForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideAlert('cpAlert');
+
+      const currentPassword = document.getElementById('currentPassword').value;
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      const btn = document.getElementById('cpSubmitBtn');
+
+      btn.disabled = true;
+      btn.textContent = 'Changing...';
+
+      const { ok, data } = await apiCall('/api/auth/change-password', 'POST', {
+        currentPassword, newPassword, confirmPassword
+      });
+
+      if (ok) {
+        showAlert('cpAlert', data.message, 'success');
+        document.getElementById('changePasswordForm').reset();
+      } else {
+        const msg = data.details ? data.details.join(' ') : (data.error || 'Change failed.');
+        showAlert('cpAlert', msg, 'error');
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Change Password';
+    });
+  </script>
+</body>
+</html>
