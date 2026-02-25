@@ -23,6 +23,7 @@ db.exec(`
     user_id INTEGER NOT NULL,
     type TEXT NOT NULL,
     label TEXT,
+    custom_emoji TEXT,
     lat REAL NOT NULL,
     lng REAL NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

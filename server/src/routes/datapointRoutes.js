@@ -5,14 +5,10 @@ import { authenticateToken } from '../auth.js';
 const router = Router();
 
 const DATAPOINT_TYPES = {
-  cop: { emoji: '🚔', label: 'Police' },
-  accident: { emoji: '💥', label: 'Accident' },
-  hazard: { emoji: '⚠️', label: 'Hazard' },
-  construction: { emoji: '🚧', label: 'Construction' },
-  speed_trap: { emoji: '📸', label: 'Speed Trap' },
-  traffic: { emoji: '🚗', label: 'Heavy Traffic' },
-  closure: { emoji: '🚫', label: 'Road Closure' },
-  event: { emoji: '🎉', label: 'Event' },
+  police: { emoji: '🚔', label: 'Police' },
+  fbi: { emoji: '🕵️', label: 'FBI' },
+  ice: { emoji: '🧊', label: 'ICE' },
+  atf: { emoji: '🔫', label: 'ATF' },
   other: { emoji: '📍', label: 'Other' },
 };
 
@@ -58,7 +54,7 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', authenticateToken, (req, res) => {
-  const { type, label, lat, lng, duration = 60 } = req.body;
+  const { type, label, lat, lng, duration = 60, custom_emoji } = req.body;
 
   if (!type || lat == null || lng == null) {
     return res.status(400).json({ error: 'type, lat, and lng are required' });
@@ -68,13 +64,18 @@ router.post('/', authenticateToken, (req, res) => {
     return res.status(400).json({ error: `Invalid type. Valid types: ${Object.keys(DATAPOINT_TYPES).join(', ')}` });
   }
 
+  if (type === 'other' && !label) {
+    return res.status(400).json({ error: 'A name is required for custom reports' });
+  }
+
   const durationMinutes = Math.min(Math.max(parseInt(duration) || 60, 5), 1440);
   const expiresAt = new Date(Date.now() + durationMinutes * 60 * 1000).toISOString();
+  const emoji = type === 'other' && custom_emoji ? custom_emoji : null;
 
   const result = db.prepare(`
-    INSERT INTO datapoints (user_id, type, label, lat, lng, expires_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(req.user.id, type, label || null, lat, lng, expiresAt);
+    INSERT INTO datapoints (user_id, type, label, custom_emoji, lat, lng, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(req.user.id, type, label || null, emoji, lat, lng, expiresAt);
 
   const datapoint = db.prepare(`
     SELECT d.*, u.username

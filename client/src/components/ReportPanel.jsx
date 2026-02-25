@@ -2,36 +2,43 @@ import { useState } from 'react';
 import { createDatapoint } from '../api';
 
 const TYPES = {
-  cop: { emoji: '🚔', label: 'Police' },
-  accident: { emoji: '💥', label: 'Accident' },
-  hazard: { emoji: '⚠️', label: 'Hazard' },
-  construction: { emoji: '🚧', label: 'Construction' },
-  speed_trap: { emoji: '📸', label: 'Speed Trap' },
-  traffic: { emoji: '🚗', label: 'Heavy Traffic' },
-  closure: { emoji: '🚫', label: 'Road Closure' },
-  event: { emoji: '🎉', label: 'Event' },
+  police: { emoji: '🚔', label: 'Police' },
+  fbi: { emoji: '🕵️', label: 'FBI' },
+  ice: { emoji: '🧊', label: 'ICE' },
+  atf: { emoji: '🔫', label: 'ATF' },
   other: { emoji: '📍', label: 'Other' },
 };
+
+const EMOJI_PICKER = ['📍','🚨','🛑','⚠️','🚁','🏛️','📡','👮','🔍','🚧','💀','❗','🔒','👁️','📢','🐕','🚐','🏢'];
 
 export default function ReportPanel({ position, onClose, onCreated }) {
   const [type, setType] = useState('');
   const [label, setLabel] = useState('');
+  const [customEmoji, setCustomEmoji] = useState('📍');
+  const [customName, setCustomName] = useState('');
   const [duration, setDuration] = useState('60');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const isOther = type === 'other';
+
   async function handleSubmit() {
     if (!type) return;
+    if (isOther && !customName.trim()) {
+      setError('Give your custom report a name');
+      return;
+    }
     setSubmitting(true);
     setError('');
 
     try {
       const dp = await createDatapoint({
         type,
-        label: label.trim() || null,
+        label: isOther ? customName.trim() : (label.trim() || null),
         lat: position.lat,
         lng: position.lng,
         duration: parseInt(duration),
+        custom_emoji: isOther ? customEmoji : undefined,
       });
       onCreated(dp);
     } catch (err) {
@@ -40,6 +47,8 @@ export default function ReportPanel({ position, onClose, onCreated }) {
       setSubmitting(false);
     }
   }
+
+  const submitEmoji = isOther ? customEmoji : (type ? TYPES[type].emoji : '');
 
   return (
     <div className="report-panel">
@@ -57,20 +66,47 @@ export default function ReportPanel({ position, onClose, onCreated }) {
             className={`type-btn ${type === key ? 'selected' : ''}`}
             onClick={() => setType(key)}
           >
-            <span className="emoji">{val.emoji}</span>
+            <span className="emoji">{key === 'other' && type === 'other' ? customEmoji : val.emoji}</span>
             {val.label}
           </button>
         ))}
       </div>
 
-      <input
-        className="note-input"
-        type="text"
-        placeholder="Add a note (optional)"
-        value={label}
-        onChange={(e) => setLabel(e.target.value)}
-        maxLength={100}
-      />
+      {isOther && (
+        <div className="other-config">
+          <input
+            className="note-input"
+            type="text"
+            placeholder="Name this report (required)"
+            value={customName}
+            onChange={(e) => setCustomName(e.target.value)}
+            maxLength={50}
+          />
+          <div className="emoji-picker-label">Choose an emoji for the pin:</div>
+          <div className="emoji-picker">
+            {EMOJI_PICKER.map((em) => (
+              <button
+                key={em}
+                className={`emoji-option ${customEmoji === em ? 'selected' : ''}`}
+                onClick={() => setCustomEmoji(em)}
+              >
+                {em}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!isOther && (
+        <input
+          className="note-input"
+          type="text"
+          placeholder="Add a note (optional)"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          maxLength={100}
+        />
+      )}
 
       <div className="duration-row">
         <label>Expires in:</label>
@@ -89,7 +125,7 @@ export default function ReportPanel({ position, onClose, onCreated }) {
         onClick={handleSubmit}
         disabled={!type || submitting}
       >
-        {submitting ? 'Reporting...' : `Report ${type ? TYPES[type].emoji : ''}`}
+        {submitting ? 'Reporting...' : `Report ${submitEmoji}`}
       </button>
     </div>
   );

@@ -6,16 +6,22 @@ import { getDatapoints, deleteDatapoint } from '../api';
 import 'leaflet/dist/leaflet.css';
 
 const TYPES = {
-  cop: { emoji: '🚔', label: 'Police' },
-  accident: { emoji: '💥', label: 'Accident' },
-  hazard: { emoji: '⚠️', label: 'Hazard' },
-  construction: { emoji: '🚧', label: 'Construction' },
-  speed_trap: { emoji: '📸', label: 'Speed Trap' },
-  traffic: { emoji: '🚗', label: 'Heavy Traffic' },
-  closure: { emoji: '🚫', label: 'Road Closure' },
-  event: { emoji: '🎉', label: 'Event' },
+  police: { emoji: '🚔', label: 'Police' },
+  fbi: { emoji: '🕵️', label: 'FBI' },
+  ice: { emoji: '🧊', label: 'ICE' },
+  atf: { emoji: '🔫', label: 'ATF' },
   other: { emoji: '📍', label: 'Other' },
 };
+
+function getDatapointDisplay(dp) {
+  if (dp.type === 'other') {
+    return {
+      emoji: dp.custom_emoji || '📍',
+      label: dp.label || 'Other',
+    };
+  }
+  return TYPES[dp.type] || { emoji: '📍', label: dp.type };
+}
 
 function createEmojiIcon(emoji) {
   return L.divIcon({
@@ -155,7 +161,8 @@ export default function SpotMap({ user, onLogout }) {
   function handleCreated(dp) {
     setDatapoints((prev) => [dp, ...prev]);
     setReporting(false);
-    showToast(`${TYPES[dp.type]?.emoji || '📍'} Reported!`);
+    const display = getDatapointDisplay(dp);
+    showToast(`${display.emoji} Reported!`);
   }
 
   async function handleDelete(id) {
@@ -194,7 +201,7 @@ export default function SpotMap({ user, onLogout }) {
           </Marker>}
 
           {datapoints.map((dp) => {
-            const info = TYPES[dp.type] || TYPES.other;
+            const info = getDatapointDisplay(dp);
             return (
               <Marker
                 key={dp.id}
@@ -205,7 +212,7 @@ export default function SpotMap({ user, onLogout }) {
                   <div className="datapoint-popup">
                     <div className="popup-emoji">{info.emoji}</div>
                     <div className="popup-type">{info.label}</div>
-                    {dp.label && <div className="popup-label">"{dp.label}"</div>}
+                    {dp.type !== 'other' && dp.label && <div className="popup-label">"{dp.label}"</div>}
                     <div className="popup-meta">
                       by @{dp.username} &middot; {timeAgo(dp.created_at)}
                     </div>

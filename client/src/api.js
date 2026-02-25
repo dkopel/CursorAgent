@@ -54,11 +54,11 @@ export async function getDatapoints(lat, lng, radius = 50) {
   return res.json();
 }
 
-export async function createDatapoint({ type, label, lat, lng, duration }) {
+export async function createDatapoint({ type, label, lat, lng, duration, custom_emoji }) {
   const res = await fetch(`${API_BASE}/datapoints`, {
     method: 'POST',
     headers: getHeaders(true),
-    body: JSON.stringify({ type, label, lat, lng, duration }),
+    body: JSON.stringify({ type, label, lat, lng, duration, custom_emoji }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error);
