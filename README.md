@@ -1,6 +1,6 @@
 # CursorAgent
 
-In-memory ranking and commenting service for map datapoints.
+Persistent ranking and commenting service for map datapoints with a FastAPI HTTP layer.
 
 ## What is implemented
 
@@ -19,14 +19,49 @@ In-memory ranking and commenting service for map datapoints.
 - Comments can have replies (threaded comments).
 - Comments and replies can be upvoted/downvoted with one vote per user per comment/reply.
 - `get_comment_tree(datapoint_id)` returns nested comments/replies with vote totals.
+- API actions are auth-aware: user identity comes from a bearer token, not client-supplied user IDs.
+- State is persisted in SQLite (`RANKING_DB_PATH`, default `/workspace/data/ranking.db`).
+- Chat responses can be humanized via `POST /chat/humanize` to sound more informal and less AI-like.
 
 ## Files
 
 - Core service: `src/ranking_system.py`
+- API app: `src/api.py`
+- SQLite store: `src/sqlite_store.py`
+- Chat tone engine: `src/chat_style.py`
 - Tests: `tests/test_ranking_system.py`
+- API tests: `tests/test_api.py`
+- Chat style tests: `tests/test_chat_style.py`
+- Dependencies: `requirements.txt`
+
+## Install dependencies
+
+```bash
+python3 -m pip install -r requirements.txt
+```
+
+## Run API server
+
+```bash
+RANKING_DB_PATH=/workspace/data/ranking.db python3 -m uvicorn src.api:app --reload --port 8000
+```
+
+## Key API endpoints
+
+- `POST /auth/register` (returns `token`)
+- `GET /auth/me` (requires `Authorization: Bearer <token>`)
+- `GET /users/{user_id}`
+- `POST /datapoints` (auth required)
+- `GET /datapoints/{datapoint_id}`
+- `POST /datapoints/{datapoint_id}/votes` (auth required)
+- `GET /datapoints/{datapoint_id}/accuracy`
+- `POST /datapoints/{datapoint_id}/comments` (auth required)
+- `POST /comments/{comment_id}/votes` (auth required)
+- `GET /datapoints/{datapoint_id}/comments/tree`
+- `POST /chat/humanize` (auth required, informal-tone rewrite)
 
 ## Run tests
 
 ```bash
-python3 -m unittest discover -s tests -p "test_*.py"
+python3 -m unittest discover -s tests -p "test_*.py" -v
 ```
