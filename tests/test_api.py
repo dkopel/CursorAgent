@@ -39,6 +39,12 @@ class RankingApiTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 401)
 
+        chat_response = self.client.post(
+            "/chat/humanize",
+            json={"draft": "Certainly, I will do that."},
+        )
+        self.assertEqual(chat_response.status_code, 401)
+
     def test_full_datapoint_scoring_flow(self) -> None:
         author = self._register("alice")
         voter_1 = self._register("voter-1")
@@ -175,6 +181,23 @@ class RankingApiTests(unittest.TestCase):
         self.assertEqual(me_resp.status_code, 200)
         self.assertEqual(me_resp.json()["user_id"], user["user_id"])
         self.assertEqual(me_resp.json()["username"], "profile-user")
+
+    def test_chat_humanize_endpoint(self) -> None:
+        user = self._register("chat-user")
+        response = self.client.post(
+            "/chat/humanize",
+            json={
+                "draft": "As an AI language model, certainly, I will not leave this unfinished.",
+                "include_follow_up": True,
+            },
+            headers=self._auth_headers(user["token"]),
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["style"], "informal")
+        self.assertNotIn("As an AI language model", payload["message"])
+        self.assertIn("I'll", payload["message"])
+        self.assertIn("want me to keep going?", payload["message"])
 
 
 if __name__ == "__main__":

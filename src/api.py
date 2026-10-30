@@ -9,6 +9,7 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from pydantic import BaseModel, Field
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from chat_style import ChatStyleEngine
 from sqlite_store import AuthUser, SQLiteRankingStore
 
 
@@ -30,6 +31,11 @@ class VoteRequest(BaseModel):
 class CreateCommentRequest(BaseModel):
     content: str = Field(min_length=1, max_length=255)
     parent_comment_id: str | None = None
+
+
+class HumanizeChatRequest(BaseModel):
+    draft: str = Field(min_length=1, max_length=4000)
+    include_follow_up: bool = True
 
 
 def _serialize_auth_user(store: SQLiteRankingStore, user: AuthUser) -> dict[str, object]:
@@ -69,6 +75,7 @@ def _raise_http_error(exc: Exception) -> None:
 def create_app(db_path: str | None = None) -> FastAPI:
     database_path = db_path or os.environ.get("RANKING_DB_PATH", "/workspace/data/ranking.db")
     ranking_store = SQLiteRankingStore(database_path)
+    style_engine = ChatStyleEngine()
     auth_scheme = HTTPBearer(auto_error=False)
     app = FastAPI(title="Datapoint Ranking API", version="1.0.0")
 
@@ -208,6 +215,19 @@ def create_app(db_path: str | None = None) -> FastAPI:
     def comment_tree(datapoint_id: str) -> dict[str, object]:
         try:
             return ranking_store.get_comment_tree(datapoint_id)
+        except Exception as exc:  # pragma: no cover - defensive conversion
+            _raise_http_error(exc)
+
+    @app.post("/chat/humanize")
+    def humanize_chat(
+        payload: HumanizeChatRequest,
+        _: AuthUser = Depends(current_user),
+    ) -> dict[str, object]:
+        try:
+            return style_engine.humanize(
+                draft=payload.draft,
+                include_follow_up=payload.include_follow_up,
+            )
         except Exception as exc:  # pragma: no cover - defensive conversion
             _raise_http_error(exc)
 
