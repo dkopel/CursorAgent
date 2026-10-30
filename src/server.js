@@ -21,7 +21,7 @@ app.get('/api/health', (req, res) => {
 
 getDb();
 
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
 
