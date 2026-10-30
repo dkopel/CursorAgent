@@ -1,6 +1,6 @@
 # CursorAgent
 
-In-memory ranking and commenting service for map datapoints.
+In-memory ranking and commenting service for map datapoints with a FastAPI HTTP layer.
 
 ## What is implemented
 
@@ -23,10 +23,37 @@ In-memory ranking and commenting service for map datapoints.
 ## Files
 
 - Core service: `src/ranking_system.py`
+- API app: `src/api.py`
 - Tests: `tests/test_ranking_system.py`
+- API tests: `tests/test_api.py`
+- Dependencies: `requirements.txt`
+
+## Install dependencies
+
+```bash
+python3 -m pip install -r requirements.txt
+```
+
+## Run API server
+
+```bash
+python3 -m uvicorn src.api:app --reload --port 8000
+```
+
+## Key API endpoints
+
+- `POST /users`
+- `GET /users/{user_id}`
+- `POST /datapoints`
+- `GET /datapoints/{datapoint_id}`
+- `POST /datapoints/{datapoint_id}/votes`
+- `GET /datapoints/{datapoint_id}/accuracy`
+- `POST /datapoints/{datapoint_id}/comments`
+- `POST /comments/{comment_id}/votes`
+- `GET /datapoints/{datapoint_id}/comments/tree`
 
 ## Run tests
 
 ```bash
-python3 -m unittest discover -s tests -p "test_*.py"
+python3 -m unittest discover -s tests -p "test_*.py" -v
 ```
