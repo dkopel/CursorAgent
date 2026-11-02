@@ -9,7 +9,7 @@
 | Layer | Tech | Directory |
 |---|---|---|
 | Frontend | React 19 + Vite + Leaflet | `client/` |
-| Backend | Express + better-sqlite3 + JWT | `server/` |
+| Backend | Express + Node built-in SQLite + JWT | `server/` |
 | Database | SQLite (auto-created at `server/spotmap.db`) | — |
 
 ### Running the app
